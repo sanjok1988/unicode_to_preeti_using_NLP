@@ -242,7 +242,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logger.info(f"Using device: {device}")
 
 class UnicodePreetiFontConverter:
-    def __init__(self, model_path="unicode_to_preeti_model"):
+    def __init__(self, model_path="/content/drive/MyDrive/thesis/unicode_to_preeti_model"):
         """
         Initialize the converter with pre-trained model
 
@@ -422,3 +422,284 @@ def advanced_text_processing_demo():
 if __name__ == "__main__":
     main()
     advanced_text_processing_demo()
+
+def test_converter_metrics():
+    """
+    Test the converter using CER (Character Error Rate) and BLEU score metrics
+    """
+    import nltk
+    from nltk.translate.bleu_score import sentence_bleu
+    nltk.download('punkt')
+
+    # Initialize converter
+    converter = UnicodePreetiFontConverter()
+
+    # Load test dataset with known ground truth
+    test_data = [
+        {"unicode": "क", "expected_preeti": "s"},
+        {"unicode": "का", "expected_preeti": "sf"},
+        {"unicode": "कि", "expected_preeti": "ls"},
+        {"unicode": "नमस्ते", "expected_preeti": "gd:t]"}
+    ]
+
+    # Calculate metrics
+    cer_total = 0
+    bleu_scores = []
+
+    print("\n--- CER/BLEU Evaluation ---")
+    print(f"{'Unicode':<15} {'Expected':<15} {'Predicted':<15} {'CER':<10} {'BLEU':<10}")
+    print("-" * 65)
+
+    for item in test_data:
+        unicode_text = item["unicode"]
+        expected = item["expected_preeti"]
+        predicted = converter.convert_single(unicode_text)
+
+        # Calculate Character Error Rate (CER)
+        edit_distance = nltk.edit_distance(predicted, expected)
+        cer = edit_distance / max(len(expected), 1)
+        cer_total += cer
+
+        # Calculate BLEU score
+        reference = [list(expected)]
+        candidate = list(predicted)
+        bleu = sentence_bleu(reference, candidate)
+        bleu_scores.append(bleu)
+
+        print(f"{unicode_text:<15} {expected:<15} {predicted:<15} {cer:.4f}      {bleu:.4f}")
+
+    # Calculate average metrics
+    avg_cer = cer_total / len(test_data)
+    avg_bleu = sum(bleu_scores) / len(bleu_scores)
+
+    print("-" * 65)
+    print(f"Average CER: {avg_cer:.4f} (lower is better)")
+    print(f"Average BLEU: {avg_bleu:.4f} (higher is better)")
+
+    return avg_cer, avg_bleu
+
+def test_qualitative_assessment():
+    """
+    Perform qualitative assessment of the converter
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.font_manager import FontProperties
+
+    # Initialize converter
+    converter = UnicodePreetiFontConverter()
+
+    # Sample texts of varying complexity
+    test_samples = [
+        {"category": "Simple", "texts": ["क", "ख", "ग", "घ"]},
+        {"category": "Medium", "texts": ["नमस्ते", "कस्तो छ", "धन्यवाद"]},
+        {"category": "Complex", "texts": ["नेपाली भाषा", "कम्प्युटर विज्ञान", "प्रविधि र विकास"]}
+    ]
+
+    print("\n--- Qualitative Assessment ---")
+
+    # Process each category
+    for category in test_samples:
+        print(f"\nCategory: {category['category']}")
+        print(f"{'Unicode':<20} {'Preeti':<20}")
+        print("-" * 40)
+
+        for text in category["texts"]:
+            converted = converter.convert_single(text)
+            print(f"{text:<20} {converted:<20}")
+
+    # Visual comparison of sample texts
+    plt.figure(figsize=(12, 8))
+    plt.subplot(1, 1, 1)
+    plt.title("Qualitative Assessment Results")
+    plt.axis('off')
+
+    y_position = 0.95
+    plt.text(0.1, y_position, "Unicode", fontsize=14, fontweight='bold')
+    plt.text(0.5, y_position, "Preeti (Converted)", fontsize=14, fontweight='bold')
+    y_position -= 0.05
+
+    # Add samples to plot
+    for i, category in enumerate(test_samples):
+        y_position -= 0.05
+        plt.text(0.02, y_position, f"{category['category']}:", fontsize=12, fontweight='bold')
+        y_position -= 0.03
+
+        for text in category["texts"]:
+            converted = converter.convert_single(text)
+            plt.text(0.1, y_position, text, fontsize=11)
+            plt.text(0.5, y_position, converted, fontsize=11)
+            y_position -= 0.03
+
+    plt.tight_layout()
+    plt.savefig('qualitative_assessment.png')
+    plt.close()
+    print("\nQualitative assessment visualization saved as 'qualitative_assessment.png'")
+
+def test_performance_benchmark():
+    """
+    Benchmark the performance of the converter
+    """
+    import time
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Initialize converter
+    converter = UnicodePreetiFontConverter()
+
+    # Test different input lengths
+    test_cases = [
+        {"type": "Single Character", "text": "क"},
+        {"type": "Word", "text": "नेपाली"},
+        {"type": "Short Sentence", "text": "नमस्ते। कस्तो छ?"},
+        {"type": "Medium Sentence", "text": "आज नेपालमा धेरै मानिसहरू छन्।"},
+        {"type": "Long Sentence", "text": "नेपाल एक सुन्दर देश हो जहाँ विभिन्न संस्कृति, भाषा र परम्परा पाइन्छ। यहाँको प्राकृतिक सौन्दर्य संसारभरि प्रसिद्ध छ।"}
+    ]
+
+    # Record processing times
+    processing_times = []
+    text_lengths = []
+    text_types = []
+
+    print("\n--- Performance Benchmark ---")
+    print(f"{'Type':<20} {'Length':<10} {'Time (ms)':<15}")
+    print("-" * 45)
+
+    for case in test_cases:
+        text_type = case["type"]
+        text = case["text"]
+        text_length = len(text)
+
+        # Measure performance (average of 5 runs)
+        times = []
+        for _ in range(5):
+            start_time = time.time()
+            _ = converter.convert_single(text)
+            end_time = time.time()
+            times.append((end_time - start_time) * 1000)  # convert to ms
+
+        avg_time = np.mean(times)
+
+        print(f"{text_type:<20} {text_length:<10} {avg_time:.2f}")
+
+        text_types.append(text_type)
+        text_lengths.append(text_length)
+        processing_times.append(avg_time)
+
+    # Create performance visualization
+    plt.figure(figsize=(10, 6))
+    bars = plt.bar(text_types, processing_times, color='skyblue')
+
+    # Add text lengths on top of bars
+    for i, bar in enumerate(bars):
+        plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                f'{text_lengths[i]} chars', ha='center', fontsize=9)
+
+    plt.title('Conversion Performance by Text Type')
+    plt.xlabel('Text Type')
+    plt.ylabel('Processing Time (ms)')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.savefig('performance_benchmark.png')
+    plt.close()
+
+    print("\nPerformance benchmark visualization saved as 'performance_benchmark.png'")
+
+def run_comprehensive_tests():
+    """
+    Run all tests in a comprehensive test suite
+    """
+    print("\n========== UNICODE TO PREETI CONVERTER TESTING ==========")
+
+    # Test 1: Metrics Evaluation
+    print("\n[TEST 1] CER/BLEU Metrics Evaluation")
+    cer, bleu = test_converter_metrics()
+
+    # Test 2: Qualitative Assessment
+    print("\n[TEST 2] Qualitative Assessment")
+    test_qualitative_assessment()
+
+    # Test 3: Performance Benchmark
+    print("\n[TEST 3] Performance Benchmark")
+    test_performance_benchmark()
+
+    # Generate visual analysis with image
+    generate_test_summary(cer, bleu)
+
+    print("\n========== TESTING COMPLETED ==========")
+
+def generate_test_summary(cer, bleu):
+    """
+    Generate and visualize a summary of all test results
+    """
+    import matplotlib.pyplot as plt
+
+    # Create a visual summary of test results
+    plt.figure(figsize=(12, 8))
+
+    # Title
+    plt.suptitle("Unicode to Preeti Converter - Test Results Summary", fontsize=16, y=0.98)
+
+    # Metrics Results
+    plt.subplot(2, 2, 1)
+    plt.bar(['CER', 'BLEU'], [cer, bleu], color=['red', 'green'])
+    plt.title('Metrics Evaluation')
+    plt.ylim(0, 1)
+
+    # Add text display of metrics
+    plt.text(0, cer + 0.05, f'{cer:.4f}', ha='center')
+    plt.text(1, bleu + 0.05, f'{bleu:.4f}', ha='center')
+
+    # Add note about metric interpretation
+    plt.figtext(0.25, 0.4, "CER: Lower is better\nBLEU: Higher is better",
+                bbox=dict(facecolor='yellow', alpha=0.2))
+
+    # Add placeholder for qualitative results
+    plt.subplot(2, 2, 2)
+    plt.axis('off')
+    plt.title('Qualitative Assessment')
+    plt.text(0.5, 0.5, "See 'qualitative_assessment.png'\nfor detailed results",
+             ha='center', va='center', fontsize=10,
+             bbox=dict(facecolor='lightblue', alpha=0.4))
+
+    # Add placeholder for performance results
+    plt.subplot(2, 2, 3)
+    plt.axis('off')
+    plt.title('Performance Benchmark')
+    plt.text(0.5, 0.5, "See 'performance_benchmark.png'\nfor detailed results",
+             ha='center', va='center', fontsize=10,
+             bbox=dict(facecolor='lightgreen', alpha=0.4))
+
+    # Add recommendations based on test results
+    plt.subplot(2, 2, 4)
+    plt.axis('off')
+    plt.title('Recommendations')
+
+    # Generate recommendations based on metrics
+    recommendations = []
+    if cer < 0.2:
+        recommendations.append("✓ CER is good (<0.2)")
+    else:
+        recommendations.append("✗ CER needs improvement (>0.2)")
+
+    if bleu > 0.7:
+        recommendations.append("✓ BLEU score is good (>0.7)")
+    else:
+        recommendations.append("✗ BLEU score needs improvement (<0.7)")
+
+    recommendations.append("➤ See detailed reports for more insights")
+
+    # Display recommendations
+    y_pos = 0.8
+    for rec in recommendations:
+        plt.text(0.1, y_pos, rec, fontsize=10)
+        y_pos -= 0.2
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.savefig('test_summary.png')
+    plt.close()
+
+    print("\nTest summary visualization saved as 'test_summary.png'")
+
+# Run all tests
+if __name__ == "__main__":
+    run_comprehensive_tests()
