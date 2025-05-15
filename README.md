@@ -1,7 +1,7 @@
 # Unicode to Preeti Font Translator
 
 This repository provides a fine-tuned sequence-to-sequence model for converting Nepali text from **Unicode** encoding to **Preeti** font encoding. The model is based on `Helsinki-NLP/opus-mt-en-ROMANCE` and was trained using a custom phrase-aligned dataset.
-
+Video Link: https://youtu.be/bbXgzeKuQzc
 ---
 
 ## 🧾 Dataset Used for Training
